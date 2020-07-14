@@ -1,0 +1,159 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using CliMod;
+
+namespace RookDB
+{
+    public sealed class DBTable
+    {
+        public RookDB ownerDB;
+
+        public string identifier;
+        internal List<DBColumnInfo> columns = new List<DBColumnInfo>();
+        internal List<DBRecord> records = new List<DBRecord>();
+
+        internal DBTable(JsonElement tableBase)
+        {
+            ParseWholeText(tableBase);
+        }
+
+        private void ParseWholeText(JsonElement baseElement)
+        {
+            if (baseElement.TryGetProperty("name", out JsonElement nameProp))
+            {
+                identifier = nameProp.GetString();
+            }
+            else
+            {
+                Logger.Debug?.WriteLine("[RookDB] database table has no name property!");
+                identifier = "_unnamed_" + new Random().Next().ToString() + "_";
+            }
+
+            if (!baseElement.TryGetProperty("columns", out _))
+            {
+                Logger.Critical?.WriteLine("[RookDB] Database table has no column information. Cannot load without schema.");
+                return;
+            }
+            if (!baseElement.TryGetProperty("lines", out _))
+            {
+                Logger.Critical?.WriteLine("[RookDB] Database table has no records (not even a node), an error must have occured during export/write. Cannot load without schema.");
+                return;
+            }
+
+            ParseColumns(baseElement.GetProperty("columns"));
+            foreach (JsonElement recordElement in baseElement.GetProperty("lines").EnumerateArray())
+            {
+                ParseRecord(recordElement);
+            }
+            
+            Logger.Debug?.WriteLine("[RookDB] Loaded table with " + columns.Count + " columns.");
+        }
+
+        private void ParseColumns(JsonElement baseElement)
+        {
+            foreach (JsonElement columnElement in baseElement.EnumerateArray())
+            {
+                DBColumnInfo cInfo = new DBColumnInfo();
+                cInfo.columnIdenfier = columnElement.GetProperty("name").GetString();
+                cInfo.ownerTable = this;
+                string typeStr = columnElement.GetProperty("typeStr").GetString();
+                if (typeStr.Contains(":"))
+                {
+                    //extract and parse meta, process new typeStr as wells
+                    string[] splitStr = typeStr.Split(":");
+                    typeStr = splitStr[0];
+                    cInfo.columnMeta = splitStr[1].Split(',');
+                }
+                byte typeNum = byte.Parse(typeStr);
+                if (!Enum.IsDefined(typeof(ColumnType), typeNum))
+                {
+                    Logger.Critical?.WriteLine("[RookDB] Attempted to parsed column with type " + typeStr + ". This value is not defined, ignoring column.");
+                    continue;
+                }
+                cInfo.columnType = (ColumnType)typeNum;
+                columns.Add(cInfo);
+            }
+        }
+
+        private void ParseRecord(JsonElement baseElement)
+        {
+            string recordIdent = "";
+            List<object> values = new List<object>();
+            foreach (DBColumnInfo column in columns)
+            {
+                switch (column.columnType)
+                {
+                    case ColumnType.UniqueIdentifier:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement uidChild))
+                        { recordIdent = uidChild.GetString(); }
+                        else
+                        { throw new Exception("[RookDB] Cannot have a UniqueIdentifier with no value! (JSON property not found via column name.)"); }
+                        break;
+                    case ColumnType.Boolean:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement boolChild))
+                        { values.Add(boolChild.GetBoolean()); }
+                        else
+                        { values.Add(false); }
+                        break;
+                    case ColumnType.Color:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement colorChild))
+                        {
+                            //read int, force to 6 digit wide hex representation, parse pairs of characters as bytes (r/g/b values).
+                            string cHex = colorChild.GetInt32().ToString("X6");
+                            values.Add(new byte[] 
+                            {
+                                Convert.ToByte(cHex.Substring(0, 2), 16),
+                                Convert.ToByte(cHex.Substring(2, 2), 16),
+                                Convert.ToByte(cHex.Substring(4, 2), 16)
+                            });
+                        }
+                        else
+                        { values.Add(new byte[] {0, 0, 0}); }
+                        break;
+                    case ColumnType.Enumeration:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement enumChild) || enumChild.GetInt32() >= column.columnMeta.Length)
+                        { values.Add(column.columnMeta[enumChild.GetInt32()]); }
+                        else
+                        { values.Add(column.columnMeta[0]); }
+                        break;
+                    case ColumnType.Flags:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement flagsChild))
+                        { 
+                            List<string> claimed = new List<string>();
+                            uint flagData = flagsChild.GetUInt32();
+                            for (int shiftCount = 0; shiftCount < 32 && shiftCount < column.columnMeta.Length; shiftCount++)
+                            {
+                                if ((flagData & (1 << shiftCount)) != 0)
+                                { claimed.Add(column.columnMeta[shiftCount]); }
+                            }
+                            values.Add(claimed.ToArray());
+                        }
+                        else
+                        { values.Add(new string[0]); }
+                        break;
+                    case ColumnType.Float:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement floatChild))
+                        { values.Add(floatChild.GetSingle()); }
+                        else
+                        { values.Add(0f); }
+                        break;
+                    case ColumnType.Integer:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement intChild))
+                        { values.Add(intChild.GetInt32()); }
+                        else
+                        { values.Add(0); }
+                        break;
+                    case ColumnType.List:
+                        Console.WriteLine("List parsing not implemented.");
+                        break;
+                    case ColumnType.Reference:
+                        
+                        break;
+                    case ColumnType.Text:
+                        break;
+                }
+            }
+        }
+    }
+}

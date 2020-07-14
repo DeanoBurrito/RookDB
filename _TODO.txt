@@ -1,0 +1,16 @@
+--- IN PROGRESS ---
+List Parsing
+
+
+--- FRONT BURNER ---
+Read/Write functionality
+
+
+--- BACK BURNER ----
+Write caching in memory
+Write Terminal.GUI based editor database
+
+
+--- KNOWN ISSUES ---
+RookDB.PrettyPrintField -> Does not print list at all. Need to design a solution here
+DBTable.ParseRecord -> if the uniqueidentifier column does not have a record on a rec

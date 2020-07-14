@@ -1,0 +1,220 @@
+{
+	"sheets": [
+		{
+			"name": "FirstTestSheet",
+			"columns": [
+				{
+					"typeStr": "0",
+					"name": "uid"
+				},
+				{
+					"typeStr": "1",
+					"name": "FriendlyName",
+					"display": null
+				},
+				{
+					"typeStr": "2",
+					"name": "IsHostile",
+					"opt": true,
+					"display": null
+				},
+				{
+					"typeStr": "3",
+					"name": "MaxHP"
+				},
+				{
+					"typeStr": "5:Good,Neutral,Evil,Unaligned",
+					"name": "Alignment",
+					"display": null
+				}
+			],
+			"lines": [
+				{
+					"uid": "thiefsden_npc_zero",
+					"FriendlyName": "Zero - Unbidden Blade.",
+					"MaxHP": 600,
+					"Alignment": 1
+				},
+				{
+					"uid": "paladon_npc_krios",
+					"FriendlyName": "Krios",
+					"MaxHP": 80,
+					"Alignment": 2,
+					"IsHostile": false
+				},
+				{
+					"uid": "paladon_npc_kriea",
+					"FriendlyName": "<unknown>",
+					"MaxHP": 140,
+					"Alignment": 3
+				},
+				{
+					"uid": "reshq_npc_clerk",
+					"FriendlyName": "Resistance Clerk",
+					"MaxHP": 20,
+					"Alignment": 0,
+					"IsHostile": false
+				},
+				{
+					"uid": "add_wolf_t",
+					"FriendlyName": "Wolf",
+					"MaxHP": 30,
+					"Alignment": 1,
+					"IsHostile": true
+				},
+				{
+					"uid": "add_alphawolf_t",
+					"FriendlyName": "Alpha Wolf",
+					"MaxHP": 45,
+					"Alignment": 1,
+					"IsHostile": true
+				}
+			],
+			"separators": [],
+			"props": {}
+		},
+		{
+			"name": "ColumnExamples",
+			"columns": [
+				{
+					"typeStr": "0",
+					"name": "ColIs_UniqueID"
+				},
+				{
+					"typeStr": "1",
+					"name": "ColIs_Text",
+					"display": null
+				},
+				{
+					"typeStr": "2",
+					"name": "ColIs_Boolean",
+					"display": null
+				},
+				{
+					"typeStr": "3",
+					"name": "ColIs_Int"
+				},
+				{
+					"typeStr": "4",
+					"name": "ColIs_Float"
+				},
+				{
+					"typeStr": "5:First,Second,Third,Forth,Fifth",
+					"name": "ColIs_Enum",
+					"display": null
+				},
+				{
+					"typeStr": "10:HasOne,HasTwo,HasThree",
+					"name": "ColIs_Flags",
+					"display": null
+				},
+				{
+					"typeStr": "6:FirstTestSheet",
+					"name": "ColIs_Reference",
+					"opt": true
+				},
+				{
+					"typeStr": "8",
+					"name": "ColIs_List",
+					"opt": true
+				},
+				{
+					"typeStr": "11",
+					"name": "ColIs_Color",
+					"display": null
+				},
+				{
+					"typeStr": "13",
+					"name": "ColIs_File",
+					"opt": true
+				}
+			],
+			"lines": [
+				{
+					"ColIs_UniqueID": "itemNo1",
+					"ColIs_Text": "some text",
+					"ColIs_Boolean": true,
+					"ColIs_Int": 222,
+					"ColIs_Float": 33.333,
+					"ColIs_Enum": 0,
+					"ColIs_Flags": 5,
+					"ColIs_Reference": "add_wolf_t",
+					"ColIs_List": [
+						{
+							"Values": "Line1",
+							"Metadata": "1"
+						},
+						{
+							"Values": "Line2",
+							"Metadata": "2"
+						},
+						{
+							"Values": "Line3",
+							"Metadata": "3"
+						},
+						{
+							"Values": "Line4",
+							"Metadata": "4"
+						}
+					],
+					"ColIs_Color": 5688441,
+					"ColIs_File": "test_config.txt"
+				},
+				{
+					"ColIs_UniqueID": "itemNo2",
+					"ColIs_Text": "other text",
+					"ColIs_Boolean": false,
+					"ColIs_Int": 143,
+					"ColIs_Float": 542.312,
+					"ColIs_Enum": 1,
+					"ColIs_Flags": 2,
+					"ColIs_List": [
+						{
+							"Values": "LineTheFirst",
+							"Metadata": "5"
+						},
+						{
+							"Values": "LineTheSecond",
+							"Metadata": "6"
+						}
+					],
+					"ColIs_Color": 16777215
+				},
+				{
+					"ColIs_UniqueID": "itemNo3",
+					"ColIs_Text": "more text",
+					"ColIs_Boolean": true,
+					"ColIs_Int": 4145241,
+					"ColIs_Float": 3.1415,
+					"ColIs_Enum": 2,
+					"ColIs_Flags": 0,
+					"ColIs_Color": 0,
+					"ColIs_Reference": "add_alphawolf_t"
+				}
+			],
+			"separators": [],
+			"props": {}
+		},
+		{
+			"name": "ColumnExamples@ColIs_List",
+			"props": {
+				"hide": true
+			},
+			"separators": [],
+			"lines": [],
+			"columns": [
+				{
+					"typeStr": "1",
+					"name": "Values",
+					"display": null
+				},
+				{
+					"typeStr": "1",
+					"name": "Metadata"
+				}
+			]
+		}
+	],
+	"customTypes": [],
+	"compress": false
+}
