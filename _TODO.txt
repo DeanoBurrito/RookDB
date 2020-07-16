@@ -1,14 +1,14 @@
 --- IN PROGRESS ---
-List Parsing
+List Parsing/printing
 
 
 --- FRONT BURNER ---
-Read/Write functionality
+Write functionality
 
 
 --- BACK BURNER ----
-Write caching in memory
 Write Terminal.GUI based editor database
+Editor can be launcher with args to load files directly.
 
 
 --- KNOWN ISSUES ---

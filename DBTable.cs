@@ -11,11 +11,17 @@ namespace RookDB
 
         public string identifier;
         internal List<DBColumnInfo> columns = new List<DBColumnInfo>();
-        internal List<DBRecord> records = new List<DBRecord>();
+        internal Dictionary<string, DBRecord> records = new Dictionary<string, DBRecord>();
 
         internal DBTable(JsonElement tableBase)
         {
             ParseWholeText(tableBase);
+        }
+        
+        internal DBTable(List<DBColumnInfo> schema, string name)
+        {
+            columns = schema;
+            identifier = name;
         }
 
         private void ParseWholeText(JsonElement baseElement)
@@ -41,22 +47,34 @@ namespace RookDB
                 return;
             }
 
-            ParseColumns(baseElement.GetProperty("columns"));
+            List<DBColumnInfo> columnsInfos = ParseColumns(baseElement.GetProperty("columns"));
+            foreach (DBColumnInfo col in columnsInfos)
+            {
+                col.ownerTable = this;
+                columns.Add(col);
+            }
             foreach (JsonElement recordElement in baseElement.GetProperty("lines").EnumerateArray())
             {
-                ParseRecord(recordElement);
+                DBRecord rec = ParseRecord(recordElement, columns);
+                if (records.ContainsKey(rec.identifier))
+                {
+                    Logger.Critical?.WriteLine("[RookDB] Record has duplicated unique identifier, ignoring current record. UID=" + rec.identifier);
+                    continue;
+                }
+                rec.ownerTable = this;
+                records.Add(rec.identifier, rec);
             }
             
             Logger.Debug?.WriteLine("[RookDB] Loaded table with " + columns.Count + " columns.");
         }
 
-        private void ParseColumns(JsonElement baseElement)
+        internal static List<DBColumnInfo> ParseColumns(JsonElement baseElement)
         {
+            List<DBColumnInfo> rtnInfos = new List<DBColumnInfo>();
             foreach (JsonElement columnElement in baseElement.EnumerateArray())
             {
                 DBColumnInfo cInfo = new DBColumnInfo();
                 cInfo.columnIdenfier = columnElement.GetProperty("name").GetString();
-                cInfo.ownerTable = this;
                 string typeStr = columnElement.GetProperty("typeStr").GetString();
                 if (typeStr.Contains(":"))
                 {
@@ -72,11 +90,12 @@ namespace RookDB
                     continue;
                 }
                 cInfo.columnType = (ColumnType)typeNum;
-                columns.Add(cInfo);
+                rtnInfos.Add(cInfo);
             }
+            return rtnInfos;
         }
 
-        private void ParseRecord(JsonElement baseElement)
+        internal static DBRecord ParseRecord(JsonElement baseElement, List<DBColumnInfo> columns)
         {
             string recordIdent = "";
             List<object> values = new List<object>();
@@ -86,7 +105,10 @@ namespace RookDB
                 {
                     case ColumnType.UniqueIdentifier:
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement uidChild))
-                        { recordIdent = uidChild.GetString(); }
+                        { 
+                            recordIdent = uidChild.GetString(); 
+                            values.Add(recordIdent);
+                        }
                         else
                         { throw new Exception("[RookDB] Cannot have a UniqueIdentifier with no value! (JSON property not found via column name.)"); }
                         break;
@@ -94,7 +116,7 @@ namespace RookDB
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement boolChild))
                         { values.Add(boolChild.GetBoolean()); }
                         else
-                        { values.Add(false); }
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.Color:
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement colorChild))
@@ -109,13 +131,13 @@ namespace RookDB
                             });
                         }
                         else
-                        { values.Add(new byte[] {0, 0, 0}); }
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.Enumeration:
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement enumChild) || enumChild.GetInt32() >= column.columnMeta.Length)
                         { values.Add(column.columnMeta[enumChild.GetInt32()]); }
                         else
-                        { values.Add(column.columnMeta[0]); }
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.Flags:
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement flagsChild))
@@ -130,30 +152,41 @@ namespace RookDB
                             values.Add(claimed.ToArray());
                         }
                         else
-                        { values.Add(new string[0]); }
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.Float:
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement floatChild))
                         { values.Add(floatChild.GetSingle()); }
                         else
-                        { values.Add(0f); }
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.Integer:
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement intChild))
                         { values.Add(intChild.GetInt32()); }
                         else
-                        { values.Add(0); }
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.List:
-                        Console.WriteLine("List parsing not implemented.");
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement listElement))
+                        { values.Add(""); }
+                        else
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.Reference:
-                        
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement refChild))
+                        { values.Add(column.columnMeta[0] + "/" + refChild.GetString()); }
+                        else
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                     case ColumnType.Text:
+                        if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement textChild))
+                        { values.Add(textChild.GetString()); }
+                        else
+                        { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                 }
             }
+            return new DBRecord(recordIdent, values.ToArray());
         }
     }
 }

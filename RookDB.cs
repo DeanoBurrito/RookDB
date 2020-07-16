@@ -10,6 +10,7 @@ namespace RookDB
         internal const string INVALID_DB_STR = "@@INVALID_DATABASE@@";
 
         internal Dictionary<string, DBTable> tables = new Dictionary<string, DBTable>();
+        internal Dictionary<string, List<DBColumnInfo>> embeddedSchemas = new Dictionary<string, List<DBColumnInfo>>();
         public string filename;
 
         public RookDB(string jsonData, string loadedFilename)
@@ -22,7 +23,28 @@ namespace RookDB
                 {
                     throw new Exception("'sheets' property does not exist under root json element. Are you sure this is a valid database?");
                 }
+                List<JsonElement> deferredTables = new List<JsonElement>();
                 foreach (JsonElement tableElement in jdoc.RootElement.GetProperty("sheets").EnumerateArray())
+                {
+                    //if table is a list schema, parse it, otherwise add all regular tables to a list to be processed after.
+                    if (tableElement.TryGetProperty("name", out JsonElement nameProp))
+                    {
+                        if (nameProp.GetString().Contains("@"))
+                        {
+                            string schemaName = tableElement.GetProperty("name").GetString();
+                            List<DBColumnInfo> schemaDetails = DBTable.ParseColumns(tableElement.GetProperty("columns"));
+                            if (embeddedSchemas.ContainsKey(schemaName))
+                            {
+                                Logger.Critical?.WriteLine("[RookDB] Embedded list schema has duplicate name. Name=" + schemaName);
+                                continue;
+                            }
+                            embeddedSchemas.Add(schemaName, schemaDetails);
+                        }
+                        else
+                            deferredTables.Add(tableElement);
+                    }
+                }
+                foreach (JsonElement tableElement in deferredTables)
                 {
                     DBTable newTable = new DBTable(tableElement);
                     newTable.ownerDB = this;
@@ -37,52 +59,198 @@ namespace RookDB
             }
         }
 
+        public bool IsValid()
+        {
+            return filename == INVALID_DB_STR;
+        }
+
         //API READING
-        //Regular methods throw exceptions on error. Might make the API bloated, but it provides options for just priting the error or handling the specific case.
         public DBTable GetTable(string path)
-        { throw new NotImplementedException(); }
-        public DBTable GetTableOrNull(string path)
-        { throw new NotImplementedException(); }
+        { 
+            string[] pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (TableExists(pathParts[0]))
+            {
+                return tables[pathParts[0]];
+            }
+            return null;
+        }
+
         public DBColumnInfo GetColumnInfo(string path)
-        { throw new NotImplementedException(); }
-        public DBColumnInfo GetColumnInfoOrNull(string path)
-        { throw new NotImplementedException(); }
+        { 
+            string[] pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (pathParts.Length != 2 || !ColumnExists(path))
+            {
+                return null;
+            }
+            foreach (DBColumnInfo column in tables[pathParts[0]].columns)
+            {
+                if (column.columnIdenfier == pathParts[1])
+                    return column;
+            }
+            return null;
+        }
+
         public DBRecord GetRecord(string path)
-        { throw new NotImplementedException(); }
-        public DBRecord GetRecordOrNull(string path)
-        { throw new NotImplementedException(); }
-        public T GetRecord<T>(string path)
-        { throw new NotImplementedException(); }
-        public T GetRecordOrNull<T>(string path)
-        { throw new NotImplementedException(); }
+        { 
+            string[] pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (pathParts.Length != 2 || !RecordExists(path))
+            {
+                return null;
+            }
+            return tables[pathParts[0]].records[pathParts[1]];
+        }
+
+        public object GetField(string path)
+        { 
+            string[] pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (pathParts.Length != 3 || !RecordExists(pathParts[0] + "/" + pathParts[1]) || !ColumnExists(pathParts[0] + "/" + pathParts[2]))
+            {
+                return null;
+            }
+            int fieldIdx = 0;
+            for (; fieldIdx < tables[pathParts[0]].columns.Count; fieldIdx++)
+            {
+                if (tables[pathParts[0]].columns[fieldIdx].columnIdenfier == pathParts[2])
+                    return tables[pathParts[0]].records[pathParts[1]].values[fieldIdx];
+            }
+            return null;
+        }
+        public T GetField<T>(string path)
+        { 
+            object field = GetField(path);
+            if (field != null && typeof(T) == field.GetType())
+                return (T)field;
+            return default(T);
+        }
 
         //API WRITE (add/remove)
         public void AddTable(string ident, DBColumnInfo[] schema)
-        { throw new NotImplementedException(); }
+        { 
+            if (TableExists(ident))
+            {
+                Logger.Info?.WriteLine("[RookDB] Unable to add table, duplicate table name already exists. Name=" + ident);
+                return;
+            }
+            DBTable table = new DBTable(new List<DBColumnInfo>(schema), ident);
+            table.ownerDB = this;
+            tables.Add(ident, table);
+        }
+        public void UpdateTable(string ident, DBColumnInfo[] schema, DBRecord[] records)
+        { 
+            if (!TableExists(ident))
+            {
+                Logger.Info?.WriteLine("[RookDB] Unable to update table data, table does not exist. Name=" + ident);
+                return;
+            }
+            DBTable tempTable = new DBTable(new List<DBColumnInfo>(schema), ident);
+            tempTable.ownerDB = this;
+            foreach (DBRecord rec in records)
+            {
+                if (rec.values.Length == schema.Length)
+                {
+                    rec.ownerTable = tempTable;
+                    tempTable.records.Add(rec.identifier, rec);
+                }
+            }
+            tables.Remove(ident);
+            tables.Add(ident, tempTable);
+        }
         public void RemoveTable(string ident)
-        { throw new NotImplementedException(); }
+        { 
+            if (!TableExists(ident))
+            {
+                Logger.Info?.WriteLine("[RookDB] Table cannot be removed, it does not exist. Name=" + ident);
+                return;
+            }
+            tables.Remove(ident);
+        }
         public void AddColumn(string path, DBColumnInfo columnInfo)
+        { 
+            string[] pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (pathParts.Length != 2 || columnInfo.columnIdenfier != pathParts[1])
+            {
+                Logger.Info?.WriteLine("[RookDB] Cannot add column, column name/format incorrect.");
+                return;
+            }
+            if (ColumnExists(path))
+            {
+                Logger.Info?.WriteLine("[RookDB] Column already exists in this name by that name. Please check entered details.");
+                return;
+            }
+            tables[pathParts[0]].columns.Add(columnInfo);
+            foreach (DBRecord record in tables[pathParts[0]].records.Values)
+            {
+                object[] newVals = new object[record.values.Length + 1];
+                Array.Copy(record.values, 0, newVals, 0, record.values.Length);
+                newVals[record.values.Length] = GetDefaultFieldValue(columnInfo);
+                record.values = newVals;
+            }
+        }
+        public void UpdateColumn(string path, DBColumnInfo newColumnInfo)
         { throw new NotImplementedException(); }
         public void RemoveColumn(string path)
         { throw new NotImplementedException(); }
         public void AddRecord(string path, DBRecord record)
+        { throw new NotImplementedException(); }
+        public void UpdateRecord(string path, object[] newValues)
         { throw new NotImplementedException(); }
         public void RemoveRecord(string path)
         { throw new NotImplementedException(); }
 
         //API EXPLORE
         public bool TableExists(string ident)
-        { throw new NotImplementedException(); }
+        { 
+            string[] pathParts = ident.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (pathParts.Length != 1)
+            {
+                return false; //no funky inputs here, table ID or gtfo
+            }
+            return tables.ContainsKey(pathParts[0]);
+        }
+
         public bool ColumnExists(string path)
-        { throw new NotImplementedException(); }
+        { 
+            string[] pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (pathParts.Length != 2 || !TableExists(pathParts[0]))
+            {
+                return false;
+            }
+            foreach (DBColumnInfo column in tables[pathParts[0]].columns)
+            {
+                if (column.columnIdenfier == pathParts[1])
+                    return true;
+            }
+            return false;
+        }
+
         public bool RecordExists(string path)
-        { throw new NotImplementedException(); }
+        { 
+            string[] pathParts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (pathParts.Length != 2 || !TableExists(pathParts[0]))
+            {
+                return false; //must be formatted as TABLE_ID/RECORD_ID and table must exist
+            }
+            return tables[pathParts[0]].records.ContainsKey(pathParts[1]);
+        }
+
         public List<DBTable> GetTables()
-        { throw new NotImplementedException(); }
+        { 
+            return new List<DBTable>(tables.Values); //thanks CLR runtime
+        }
+
         public List<DBColumnInfo> GetColumns(string table)
-        { throw new NotImplementedException(); }
-        public List<DBRecord> GetRecords(string path)
-        { throw new NotImplementedException(); }
+        { 
+            if (!TableExists(table))
+                return new List<DBColumnInfo>(); //empty list
+            return new List<DBColumnInfo>(tables[table].columns); //new list because we want to return a COPY, not a ref.
+        }
+
+        public List<DBRecord> GetRecords(string table)
+        { 
+            if (!TableExists(table))
+                return new List<DBRecord>();
+            return new List<DBRecord>(tables[table].records.Values);
+        }
 
         public static string PrettyPrintColumn(DBColumnInfo column)
         {
@@ -113,11 +281,11 @@ namespace RookDB
         public static string PrettyPrintRecord(DBRecord record)
         {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.Append("identifier=");
+            sb.Append("ID=");
             sb.Append(record.identifier);
-            for (int i = 0; i < record.ownerTable.columns.Count;)
+            for (int i = 0; i < record.ownerTable.columns.Count; i++)
             {
-                sb.Append(",");
+                sb.Append(", ");
                 sb.Append(PrettyPrintField(record, i));
             }
             return sb.ToString();
@@ -153,12 +321,35 @@ namespace RookDB
                     return "{ListData}";
                 case ColumnType.Color:
                     byte[] colArr = (byte[])record.values[fieldIdx];
-                    rtnString += "r{colArr[0]} g{colArr[1]} b{colArr[2]}";
+                    rtnString += $"r{colArr[0]} g{colArr[1]} b{colArr[2]}";
                     if (colArr.Length == 4)
                         rtnString += " a{colArr[3]}";
                     return rtnString;
+                case ColumnType.Reference:
+                    return "{ " + (string)record.values[fieldIdx] + " }";
                 default:
                     return record.values[fieldIdx].ToString();
+            }
+        }
+        
+        internal static object GetDefaultFieldValue(DBColumnInfo colInfo)
+        {
+            switch (colInfo.columnType)
+            {
+                case ColumnType.Boolean:
+                    return false;
+                case ColumnType.Color:
+                    return new byte[] {0, 0, 0};
+                case ColumnType.Enumeration:
+                    return colInfo.columnMeta[0];
+                case ColumnType.Flags:
+                    return new string[0];
+                case ColumnType.Float:
+                    return 0f;
+                case ColumnType.Integer:
+                    return 0;
+                default:
+                    return "";
             }
         }
     }

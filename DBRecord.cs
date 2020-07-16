@@ -4,14 +4,13 @@ namespace RookDB
 {
     public sealed class DBRecord
     {
-        public readonly DBTable ownerTable;
+        public DBTable ownerTable;
         
-        public readonly string identifier;
-        public readonly object[] values;
+        public string identifier;
+        public object[] values;
 
-        internal DBRecord(string ident, object[] vals, DBTable owner)
+        internal DBRecord(string ident, object[] vals)
         {
-            ownerTable = owner;
             identifier = ident;
             values = vals;
         }
