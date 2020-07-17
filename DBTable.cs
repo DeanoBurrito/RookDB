@@ -13,8 +13,9 @@ namespace RookDB
         internal List<DBColumnInfo> columns = new List<DBColumnInfo>();
         internal Dictionary<string, DBRecord> records = new Dictionary<string, DBRecord>();
 
-        internal DBTable(JsonElement tableBase)
+        internal DBTable(JsonElement tableBase, RookDB owner)
         {
+            ownerDB = owner;
             ParseWholeText(tableBase);
         }
         
@@ -55,7 +56,7 @@ namespace RookDB
             }
             foreach (JsonElement recordElement in baseElement.GetProperty("lines").EnumerateArray())
             {
-                DBRecord rec = ParseRecord(recordElement, columns);
+                DBRecord rec = ParseRecord(recordElement, columns, ownerDB.embeddedSchemas);
                 if (records.ContainsKey(rec.identifier))
                 {
                     Logger.Critical?.WriteLine("[RookDB] Record has duplicated unique identifier, ignoring current record. UID=" + rec.identifier);
@@ -95,9 +96,9 @@ namespace RookDB
             return rtnInfos;
         }
 
-        internal static DBRecord ParseRecord(JsonElement baseElement, List<DBColumnInfo> columns)
+        internal static DBRecord ParseRecord(JsonElement baseElement, List<DBColumnInfo> columns, Dictionary<string, List<DBColumnInfo>> listSchemas)
         {
-            string recordIdent = "";
+            string recordIdent = null;
             List<object> values = new List<object>();
             foreach (DBColumnInfo column in columns)
             {
@@ -168,7 +169,21 @@ namespace RookDB
                         break;
                     case ColumnType.List:
                         if (baseElement.TryGetProperty(column.columnIdenfier, out JsonElement listElement))
-                        { values.Add(""); }
+                        { 
+                            if (!listSchemas.ContainsKey(column.ownerTable.identifier + "@" + column.columnIdenfier))
+                            {
+                                Logger.Info.WriteLine("[RookDB] Attempted to parse list with missing schema. Check database is valid, this should not happen. Ignoring field.");
+                                values.Add(RookDB.GetDefaultFieldValue(column)); break;
+                            }
+                            DBTable listTable = new DBTable(listSchemas[column.ownerTable.identifier + "@" + column.columnIdenfier], "EmbeddedList");
+                            foreach (JsonElement field in listElement.EnumerateArray())
+                            {
+                                DBRecord record = ParseRecord(field, listTable.columns, listSchemas);
+                                record.ownerTable = listTable;
+                                listTable.records.Add(record.identifier, record);
+                            }
+                            values.Add(listTable);
+                        }
                         else
                         { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
@@ -185,6 +200,24 @@ namespace RookDB
                         { values.Add(RookDB.GetDefaultFieldValue(column)); }
                         break;
                 }
+            }
+            if (recordIdent == null)
+            {
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    if (columns[i].columnType == ColumnType.Text)
+                    {
+                        recordIdent = (string)values[i];
+                        break;
+                    }
+                }
+                if (recordIdent == null)
+                {
+                    //if its still null, we have a serious problem here, we cant even make up a uid.
+                    throw new Exception("[RookDB] Cannot load database entry, it has no unique identity and no text fields to assume uid from.");
+                }
+                else
+                    Logger.Verbose?.WriteLine("[RookDB] Record loaded without unique identifier, generated name=" + recordIdent);
             }
             return new DBRecord(recordIdent, values.ToArray());
         }

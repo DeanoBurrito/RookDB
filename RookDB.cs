@@ -46,8 +46,7 @@ namespace RookDB
                 }
                 foreach (JsonElement tableElement in deferredTables)
                 {
-                    DBTable newTable = new DBTable(tableElement);
-                    newTable.ownerDB = this;
+                    DBTable newTable = new DBTable(tableElement, this);
                     tables.Add(newTable.identifier, newTable);
                 }
             }
@@ -348,6 +347,8 @@ namespace RookDB
                     return 0f;
                 case ColumnType.Integer:
                     return 0;
+                case ColumnType.List:
+                    return null;
                 default:
                     return "";
             }
