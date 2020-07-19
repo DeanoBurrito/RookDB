@@ -213,11 +213,5 @@ namespace RookDB
                 Console.WriteLine(RookDB.PrettyPrintField(db.GetRecord(pathParts[1] + "/" + pathParts[2]), index));
             }
         }
-
-        [CLICommand("editor", "Launches the RookDB editor.")]
-        public static void LaunchEditor(string[] args)
-        {
-            Editor.EditorProgram.RunEditor();
-        }
     }
 }

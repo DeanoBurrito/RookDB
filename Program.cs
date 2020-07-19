@@ -8,8 +8,32 @@ namespace RookDB
         static void Main(string[] args)
         {
             Logger.Init(Logger.InitLevel.Verbose);
-            CLInterface cli = new CLInterface();
-            cli.Run();
+            bool runEditor = false;
+            string editorFile = null;
+            for (int i = 0; i < args.Length; i++)
+            {
+                string arg = args[i];
+                if (arg == "-e" || arg == "--editor")
+                {
+                    runEditor = true;
+                }
+                if (arg == "-f" || arg == "--editor-file")
+                {
+                    if (i + 1 < args.Length)
+                    {
+                        editorFile = args[i + 1];
+                    }
+                }
+            }
+
+            if (runEditor)
+            {
+                Editor.EditorProgram.RunEditor(editorFile);
+            }
+            else
+            {
+                new CLInterface().Run();
+            }
         }
     }
 }

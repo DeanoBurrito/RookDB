@@ -1,16 +1,15 @@
 --- IN PROGRESS ---
-List printing if RookDB.PrettyPrintFieldValue
+Write functionality
+Write Terminal.GUI based editor database
 
 
 --- FRONT BURNER ---
-Write functionality
+List printing if RookDB.PrettyPrintFieldValue
 
 
 --- BACK BURNER ----
-Write Terminal.GUI based editor database
 Editor can be launcher with args to load files directly.
 
 
 --- KNOWN ISSUES ---
 RookDB.PrettyPrintField -> Does not print list at all. Need to design a solution here
-DBTable.ParseRecord -> if the uniqueidentifier column does not have a record on a rec

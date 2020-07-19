@@ -12,6 +12,14 @@ namespace RookDB
             return source + hintStr;
         }
 
+        public static string LimitLengthInverse(string source, int length, string hintStr = "[...] ")
+        {
+            if (source.Length <= length)
+                return source;
+            source = source.Remove(0, source.Length - length + hintStr.Length);
+            return hintStr + source;
+        }
+
         public static string SquishArray(string[] array)
         {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
