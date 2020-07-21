@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Text.Json;
 using CliMod;
@@ -58,9 +59,14 @@ namespace RookDB
             }
         }
 
+        internal RookDB(string fname)
+        {
+            filename = fname;
+        }
+
         public bool IsValid()
         {
-            return filename == INVALID_DB_STR;
+            return filename != INVALID_DB_STR;
         }
 
         //API READING
@@ -249,6 +255,144 @@ namespace RookDB
             if (!TableExists(table))
                 return new List<DBRecord>();
             return new List<DBRecord>(tables[table].records.Values);
+        }
+
+        public static void WriteFile(RookDB database, string filename, bool allowOverwrite = false)
+        {
+            if (File.Exists(filename) && !allowOverwrite)
+            {
+                Logger.Critical?.WriteLine("[RookDB] Could not write file, file exists and allowOverwrite was not enabled. Aborting write operation.");
+                return;
+            }
+
+            JsonWriterOptions writerOptions = new JsonWriterOptions() 
+            {
+                Indented = true,
+                SkipValidation = false
+            };
+            using (FileStream fs = new FileStream(filename, FileMode.Create))
+            {
+                using (Utf8JsonWriter writer = new Utf8JsonWriter(fs, writerOptions))
+                {
+                    writer.WriteStartObject();
+                    writer.WriteStartArray("sheets");
+                    foreach (DBTable table in database.tables.Values)
+                    {
+                        WriteTable(table, writer);
+                    }
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+                }
+            }
+        }
+
+        private static void WriteTable(DBTable table, Utf8JsonWriter writer)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("name", table.identifier);
+
+            writer.WriteStartArray("columns");
+            foreach (DBColumnInfo column in table.columns)
+            {
+                WriteColumn(column, writer);
+            }
+            writer.WriteEndArray();
+            writer.WriteStartArray("lines");
+            foreach (DBRecord record in table.records.Values)
+            {
+                WriteRecord(record, writer);
+            }
+            writer.WriteEndArray();
+
+            writer.WriteEndObject();
+        }
+
+        private static void WriteColumn(DBColumnInfo column, Utf8JsonWriter writer)
+        { 
+            writer.WriteStartObject();
+            string typeString = ((byte)column.columnType).ToString();
+            if (column.columnMeta != null)
+            {
+                string typeMeta = StringHelper.SquishArray(column.columnMeta).Replace(" ", "");
+                typeString = typeString + ":" + typeMeta;
+            }
+            writer.WriteString("typeStr", typeString);
+            writer.WriteString("name", column.columnIdenfier);
+            //NOTE: RookDB supports reading columns marked optional from castleDB files, but it dosnt support them internally, hence it dosnt write out the value.
+            writer.WriteEndObject();
+        }
+
+        private static void WriteRecord(DBRecord record, Utf8JsonWriter writer)
+        { 
+            writer.WriteStartObject();
+            List<DBColumnInfo> columns = record.ownerTable.columns;
+            for (int colIdx = 0; colIdx < columns.Count; colIdx++)
+            {
+                DBColumnInfo column = columns[colIdx];
+                switch (column.columnType)
+                {
+                    case ColumnType.Boolean:
+                        writer.WriteBoolean(column.columnIdenfier, (bool)record.values[colIdx]);
+                        break;
+                    case ColumnType.Color:
+                        /*  Probably my least favourite encoding of all time (I didnt design this! This is from castleDB spec)
+                         *  Colours can only be RGB, alpha channel is not supported unfortunately.
+                         *  Encoding works by taking each colour as 8bits (RGB24 format), converting each channel individually into a 2 digit hex number (0's needed for padding).
+                         *  The 3 hex values are appended (RRGGBB) and converted to a single base10 integer. 
+                         *  This base10 int is what is written to disk.
+                         */
+                        byte[] colArr = (byte[])record.values[colIdx];
+                        string hexStr = Convert.ToString(colArr[0], 16);
+                        hexStr += Convert.ToString(colArr[1], 16);
+                        hexStr += Convert.ToString(colArr[2], 16);
+                        int compiledInt = Convert.ToInt32(hexStr, 16);
+                        writer.WriteNumber(column.columnIdenfier, compiledInt);
+                        break;
+                    case ColumnType.Enumeration:
+                        for (int i = 0; i < column.columnMeta.Length; i++)
+                        {
+                            if (column.columnMeta[i] == (string)record.values[colIdx])
+                            {
+                                writer.WriteNumber(column.columnIdenfier, i);
+                                break;
+                            }
+                        }
+                        break;
+                    case ColumnType.Flags:
+                        int bitArray = 0;
+                        List<string> recordFlags = new List<string>((string[])record.values[colIdx]);
+                        for (int i = 0; i < column.columnMeta.Length && i < 32; i++)
+                        {
+                            if (recordFlags.Contains(column.columnMeta[i]))
+                            {
+                                bitArray = bitArray | (1 << i);
+                            }
+                        }
+                        writer.WriteNumber(column.columnIdenfier, bitArray);
+                        break;
+                    case ColumnType.Float:
+                        writer.WriteNumber(column.columnIdenfier, (float)record.values[colIdx]);
+                        break;
+                    case ColumnType.Integer:
+                        writer.WriteNumber(column.columnIdenfier, (int)record.values[colIdx]);
+                        break;
+                    case ColumnType.List:
+                        //TODO
+                        break;
+                    case ColumnType.Reference:
+                        string refId = (string)record.values[colIdx];
+                        refId = refId.Remove(0, refId.IndexOf('/') + 1);
+                        writer.WriteString(column.columnIdenfier, refId);
+                        break;
+                    case ColumnType.Text:
+                    case ColumnType.UniqueIdentifier:
+                        writer.WriteString(column.columnIdenfier, (string)record.values[colIdx]);
+                        break;
+                    default:
+                        throw new Exception("*explosions* BOOOOM, this should not happen. (RookDB.WriteRecord tried to write a column with an invalid type.)");
+                }
+            }
+            writer.WriteEndObject();
         }
 
         public static string PrettyPrintColumn(DBColumnInfo column)

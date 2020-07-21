@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Terminal.Gui;
 
 namespace RookDB.Editor
@@ -8,6 +9,8 @@ namespace RookDB.Editor
     {
         static Window mainWin;
         static Label statusLine;
+        static ListView currTableView;
+        internal static ColumnHeaderControl columnHeaders;
         static RookDB currDB;
         
         //https://github.com/migueldeicaza/gui.cs
@@ -21,6 +24,22 @@ namespace RookDB.Editor
                 Width = Dim.Fill(),
                 Height = Dim.Fill(1),
             };
+            currTableView = new ListView(new EditorListRenderer(null)) 
+            {
+                Y = 1,
+                Width = Dim.Fill(),
+                Height = Dim.Fill(1),
+
+            };
+            mainWin.Add(currTableView);
+            columnHeaders = new ColumnHeaderControl() 
+            {
+                X = 0,
+                Y = 0,
+                Width = Dim.Fill(),
+                Height = 1,
+            };
+            mainWin.Add(columnHeaders);
             statusLine = new Label("") 
             {
                 X = 0,
@@ -30,6 +49,7 @@ namespace RookDB.Editor
                 TextColor = new Terminal.Gui.Attribute(Color.BrightYellow, Color.Black),
                 Text = "Loading..."
             };
+            Application.Top.Add(new HotInputHook()); //input hook for scrolling column headers without them being focused
             Application.Top.Add(statusLine);
             Application.Top.Add(mainWin);
             
@@ -40,19 +60,29 @@ namespace RookDB.Editor
                     new MenuItem("_New", "", CreateNew),
                     new MenuItem("_Load", "", LoadFile),
                     new MenuItem("_Save", "", SaveFile),
-                    new MenuItem("S_aveAs", "", SaveFileAs),
+                    new MenuItem("S_ave As", "", SaveFileAs),
                     new MenuItem("_Quit", "", Quit),
+                }),
+                new MenuBarItem("_Add/Delete", new MenuItem[] 
+                {
+                    new MenuItem("Add Table", null),
+                    new MenuItem("Delete Table", null),
+                    new MenuItem("Add Column", null),
+                    new MenuItem("Delete Column", null),
+                    new MenuItem("Add Record", null),
+                    new MenuItem("Delete Record", null),
                 }),
                 new MenuBarItem("_Edit", new MenuItem[] 
                 {
-                    new MenuItem("_Copy", "", null),
-                    new MenuItem("C_ut", "", null),
-                    new MenuItem("_Paste", "", null),
+                    new MenuItem("Rename Table", null),
+                    new MenuItem("Edit Column", null),
+                    new MenuItem("Change Column Order", null),
+                    new MenuItem("Rename Record", null),
                 }),
                 new MenuBarItem("_Options", new MenuItem[] 
                 {
                     new MenuItem("_Settings", "", null),
-                    new MenuItem("_About", "", null),
+                    new MenuItem("_About", "", ShowAbout),
                 }),
             });
             Application.Top.Add(mainMenu);
@@ -65,13 +95,6 @@ namespace RookDB.Editor
 
             PrintStatus("Editor loaded", StatusLevel.Default);
             Application.Run();
-        }
-
-        static void RenderFull()
-        {
-            if (currDB == null)
-                return;
-            mainWin.Title = StringHelper.LimitLengthInverse("RookDB Terminal Editor - " + currDB.filename, 54);
         }
 
         static void CreateNew()
@@ -96,7 +119,7 @@ namespace RookDB.Editor
 
             currDB = new RookDB(dbName);
             PrintStatus("Created new database, unsaved.", StatusLevel.Warning);
-            RenderFull();
+            UpdateWindowName();
         }
 
         static void LoadFile()
@@ -120,7 +143,9 @@ namespace RookDB.Editor
             if (loadedDB.IsValid())
             {
                 currDB = loadedDB;
-                RenderFull();
+                currTableView.Source = new EditorListRenderer(currDB.tables.First().Value);
+                columnHeaders.UpdateColumns(currDB.tables.First().Value.columns.ToArray());
+                UpdateWindowName();
                 PrintStatus("Loaded database: " + loadedDB.filename, StatusLevel.Default);
             }
             else
@@ -130,14 +155,82 @@ namespace RookDB.Editor
         }
 
         static void SaveFile()
-        {}
+        {
+            if (currDB == null)
+            {
+                PrintStatus("Couldn't save database, nothing loaded in memory.", StatusLevel.Error);
+                return;
+            }
+            RookDB.WriteFile(currDB, currDB.filename, true);
+            PrintStatus("Database saved successfully.", StatusLevel.Default);
+        }
 
         static void SaveFileAs()
-        {}
+        {
+            SaveDialog saveDialog = new SaveDialog("Select save location", "Select location and filename to save database as.");
+            saveDialog.IsExtensionHidden = false;
+            saveDialog.AllowedFileTypes = new string[] {"*.cdb"};
+            Application.Run(saveDialog);
+            if (saveDialog.FileName == null)
+            {
+                PrintStatus("Save As was cancelled by user.", StatusLevel.Warning);
+                return;
+            }
+            string selPath = saveDialog.FilePath.ToString();
+            if (!selPath.EndsWith(".cdb"))
+                selPath += ".cdb";
+            if (System.IO.File.Exists(selPath))
+            {
+                bool overwriteConfirmed = false;
+                Dialog overwriteDialog = new Dialog("Confirm Overwrite", 20, 25);
+                Label overwriteLabel = new Label("You are about to overwrite an existing file.\nContinue?");
+                Button okBtn = new Button("Overwrite", true) { Clicked = () => { overwriteConfirmed = true; Application.RequestStop(); }};
+                Button cancelBtn = new Button("Cancel") { Clicked = () => { Application.RequestStop(); }};
+                overwriteDialog.AddButton(okBtn);
+                overwriteDialog.AddButton(cancelBtn);
+                overwriteDialog.Add(overwriteLabel);
+                Application.Run(overwriteDialog);
+                if (!overwriteConfirmed)
+                    return;
+            }
+            RookDB.WriteFile(currDB, selPath, true);
+            PrintStatus("Saved under alt file name: " + StringHelper.LimitLengthInverse(selPath, 50), StatusLevel.Default);
+        }
 
         static void Quit()
         {
             Application.RequestStop();
+        }
+
+        static void ShowAbout()
+        {
+            Dialog aboutWin = new Dialog("About RookDB", 80, 20);
+            Label aboutLabel = new Label(@" 
+RookDB is based off CastleDB and is a static database.
+Files are stored in human readable JSON. RookDB makes a few changes,
+for details please view the README.txt in the github repo.
+
+RookDB is written in C# (dotnet core 3) by Dean T.
+This editor is written using the Terminal.Gui toolkit by Miguel Deicaza.
+All source is available at https://github.com/DeanoBurrito/RookDB.git
+
+[ESC] to close this window.
+                ")
+            {
+                X = 1,
+                Y = 1,
+                Width = Dim.Fill(1),
+                Height = Dim.Fill(1),
+            };
+            aboutWin.Add(aboutLabel);
+            Application.Run(aboutWin);
+        }
+
+        static void UpdateWindowName()
+        {
+            if (currDB == null)
+                return;
+            mainWin.Title = "RookDB Editor - " + StringHelper.LimitLengthInverse(currDB.filename, 45);
         }
 
         static void PrintStatus(string status, StatusLevel level)
