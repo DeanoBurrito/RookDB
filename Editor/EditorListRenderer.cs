@@ -6,7 +6,7 @@ namespace RookDB.Editor
 {
     public class EditorListRenderer : IListDataSource
     {
-        DBTable currTable;
+        internal DBTable currTable;
         public int hOffset = 0;
 
         public EditorListRenderer(DBTable table)
@@ -22,8 +22,6 @@ namespace RookDB.Editor
 
         public void Render(ListView container, ConsoleDriver driver, bool selected, int item, int col, int line, int width)
         {
-            //driver.Move(col, line);
-
             List<DBRecord> records = new List<DBRecord>(currTable.records.Values);
             int hOffset = EditorProgram.columnHeaders.hOffset;
             if (hOffset > currTable.columns.Count)
@@ -47,12 +45,7 @@ namespace RookDB.Editor
 
         public int Count
         {
-            get 
-            {
-                if (currTable == null)
-                    return 0;
-                return currTable.records.Count;
-            }
+            get { return currTable == null ? 0 : currTable.records.Count; }
         }
     }
 }

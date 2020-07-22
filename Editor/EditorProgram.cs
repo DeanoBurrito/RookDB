@@ -65,19 +65,18 @@ namespace RookDB.Editor
                 }),
                 new MenuBarItem("_Add/Delete", new MenuItem[] 
                 {
-                    new MenuItem("Add Table", null),
-                    new MenuItem("Delete Table", null),
-                    new MenuItem("Add Column", null),
-                    new MenuItem("Delete Column", null),
-                    new MenuItem("Add Record", null),
-                    new MenuItem("Delete Record", null),
+                    new MenuItem("Add Table", "", AddTable),
+                    new MenuItem("Delete Table", "", DeleteTable),
+                    new MenuItem("Add Column", "", AddColumn),
+                    new MenuItem("Delete Column", "", DeleteColumn),
+                    new MenuItem("Add Record", "", AddRecord),
+                    new MenuItem("Delete Record", "", DeleteRecord),
                 }),
                 new MenuBarItem("_Edit", new MenuItem[] 
                 {
-                    new MenuItem("Rename Table", null),
-                    new MenuItem("Edit Column", null),
-                    new MenuItem("Change Column Order", null),
-                    new MenuItem("Rename Record", null),
+                    new MenuItem("Rename Table", "", RenameTable),
+                    new MenuItem("Edit Column", "", EditColumn),
+                    new MenuItem("Change Column Order", "", ChangeColumnOrder)
                 }),
                 new MenuBarItem("_Options", new MenuItem[] 
                 {
@@ -95,6 +94,30 @@ namespace RookDB.Editor
 
             PrintStatus("Editor loaded", StatusLevel.Default);
             Application.Run();
+        }
+
+        public static void SelNextTable()
+        {
+            if (currDB == null)
+                return;
+            List<DBTable> allTables = new List<DBTable>(currDB.tables.Values);
+            int currIdx = allTables.IndexOf(((EditorListRenderer)currTableView.Source).currTable) + 1;
+            if (currIdx >= allTables.Count)
+                return; //we've reached the end of the tables
+            currTableView.Source = new EditorListRenderer(allTables[currIdx]);
+            columnHeaders.UpdateColumns(allTables[currIdx].columns.ToArray());
+        }
+
+        public static void SelPrevTable()
+        {
+            if (currDB == null)
+                return;
+            List<DBTable> allTables = new List<DBTable>(currDB.tables.Values);
+            int currIdx = allTables.IndexOf(((EditorListRenderer)currTableView.Source).currTable) - 1;
+            if (currIdx < 0)
+                return; //no more tables that way
+            currTableView.Source = new EditorListRenderer(allTables[currIdx]);
+            columnHeaders.UpdateColumns(allTables[currIdx].columns.ToArray());
         }
 
         static void CreateNew()
@@ -201,6 +224,35 @@ namespace RookDB.Editor
         {
             Application.RequestStop();
         }
+
+        static void AddTable()
+        {
+
+        }
+
+        static void DeleteTable()
+        {}
+
+        static void AddColumn()
+        {}
+
+        static void DeleteColumn()
+        {}
+
+        static void AddRecord()
+        {}
+
+        static void DeleteRecord()
+        {}
+
+        static void RenameTable()
+        {}
+
+        static void EditColumn()
+        {}
+
+        static void ChangeColumnOrder()
+        {}
 
         static void ShowAbout()
         {

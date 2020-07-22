@@ -32,8 +32,13 @@ namespace RookDB.Editor
                 hOffset = 0;
             
             PositionCursor();
+            int lineLen = 0;
             for (int i = hOffset - 1; i < columns.Length; i++)
             {
+                if (lineLen > region.Width)
+                    break; //if drawing another line would overrun the current one, dont draw any more.
+                
+                lineLen += COLUMN_WIDTH;
                 if (i == hOffset - 1)
                 {
                     Driver.AddStr("Record ID".PadRight(COLUMN_WIDTH));
