@@ -35,7 +35,7 @@ namespace RookDB.Editor
             int lineLen = 0;
             for (int i = hOffset - 1; i < columns.Length; i++)
             {
-                if (lineLen > region.Width)
+                if (lineLen + COLUMN_WIDTH >= region.Width)
                     break; //if drawing another line would overrun the current one, dont draw any more.
                 
                 lineLen += COLUMN_WIDTH;

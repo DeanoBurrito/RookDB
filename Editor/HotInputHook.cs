@@ -30,6 +30,21 @@ namespace RookDB.Editor
                 EditorProgram.SelPrevTable();
             }
 
+            //for editing selected values
+            if (keyEvent.Key == Key.Enter)
+            {
+                
+            }
+            if (keyEvent.Key == Key.Space)
+            {
+                //select which field to edit on current record
+            }
+
+            if (keyEvent.Key == Key.F1)
+            {
+                EditorProgram.ShowHelp();
+            }
+
             return false;
         }
     }

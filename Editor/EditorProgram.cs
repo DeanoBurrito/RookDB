@@ -9,6 +9,7 @@ namespace RookDB.Editor
     {
         static Window mainWin;
         static Label statusLine;
+        static Label tablesLine;
         static ListView currTableView;
         internal static ColumnHeaderControl columnHeaders;
         static RookDB currDB;
@@ -24,6 +25,7 @@ namespace RookDB.Editor
                 Width = Dim.Fill(),
                 Height = Dim.Fill(1),
             };
+            Application.Top.Add(mainWin);
             currTableView = new ListView(new EditorListRenderer(null)) 
             {
                 Y = 1,
@@ -40,6 +42,15 @@ namespace RookDB.Editor
                 Height = 1,
             };
             mainWin.Add(columnHeaders);
+            tablesLine = new Label("Example Text") 
+            {
+                X = 1,
+                Y = Pos.AnchorEnd(1),
+                Width = Dim.Fill(2),
+                Height = 1,
+            };
+            mainWin.Add(tablesLine);
+
             statusLine = new Label("") 
             {
                 X = 0,
@@ -48,10 +59,9 @@ namespace RookDB.Editor
                 Height = 1,
                 TextColor = new Terminal.Gui.Attribute(Color.BrightYellow, Color.Black),
                 Text = "Loading..."
-            };
+            }; 
             Application.Top.Add(new HotInputHook()); //input hook for scrolling column headers without them being focused
             Application.Top.Add(statusLine);
-            Application.Top.Add(mainWin);
             
             MenuBar mainMenu = new MenuBar(new MenuBarItem[] 
             {
@@ -81,6 +91,7 @@ namespace RookDB.Editor
                 new MenuBarItem("_Options", new MenuItem[] 
                 {
                     new MenuItem("_Settings", "", null),
+                    new MenuItem("_Help", "", ShowHelp),
                     new MenuItem("_About", "", ShowAbout),
                 }),
             });
@@ -106,6 +117,7 @@ namespace RookDB.Editor
                 return; //we've reached the end of the tables
             currTableView.Source = new EditorListRenderer(allTables[currIdx]);
             columnHeaders.UpdateColumns(allTables[currIdx].columns.ToArray());
+            UpdateTableDisplay(currIdx);
         }
 
         public static void SelPrevTable()
@@ -118,6 +130,24 @@ namespace RookDB.Editor
                 return; //no more tables that way
             currTableView.Source = new EditorListRenderer(allTables[currIdx]);
             columnHeaders.UpdateColumns(allTables[currIdx].columns.ToArray());
+            UpdateTableDisplay(currIdx);
+        }
+
+        static void UpdateTableDisplay(int currIdx = -1)
+        {
+            List<DBTable> allTables = new List<DBTable>(currDB.tables.Values);
+            if (currIdx == -1)
+                currIdx = allTables.IndexOf(((EditorListRenderer)currTableView.Source).currTable);
+
+            string newTL = "";
+            for (int i = 0; i < allTables.Count; i++)
+            {
+                if (i == currIdx)
+                    newTL += " [" + allTables[i].identifier + "] ";
+                else
+                    newTL += " " + allTables[i].identifier + " ";
+            }
+            tablesLine.Text = newTL;
         }
 
         static void CreateNew()
@@ -169,6 +199,7 @@ namespace RookDB.Editor
                 currTableView.Source = new EditorListRenderer(currDB.tables.First().Value);
                 columnHeaders.UpdateColumns(currDB.tables.First().Value.columns.ToArray());
                 UpdateWindowName();
+                UpdateTableDisplay();
                 PrintStatus("Loaded database: " + loadedDB.filename, StatusLevel.Default);
             }
             else
@@ -265,6 +296,32 @@ for details please view the README.txt in the github repo.
 RookDB is written in C# (dotnet core 3) by Dean T.
 This editor is written using the Terminal.Gui toolkit by Miguel Deicaza.
 All source is available at https://github.com/DeanoBurrito/RookDB.git
+
+[ESC] to close this window.
+                ")
+            {
+                X = 1,
+                Y = 1,
+                Width = Dim.Fill(1),
+                Height = Dim.Fill(1),
+            };
+            aboutWin.Add(aboutLabel);
+            Application.Run(aboutWin);
+        }
+
+        public static void ShowHelp()
+        {
+            Dialog aboutWin = new Dialog("Help", 80, 20);
+            Label aboutLabel = new Label(@" 
+All menu commands can be activated by hitting ALT + [highlighted_key].
+If for some reason Alt refuses to work, you can activate the top level menu with F9.
+Browsing tables is down with the left/right/up/down keys.
+PageUp/PageDown switch between tables.
+Hitting enter will edit the currently centered column and selected record.
+Space will show a menu of columns on the currently selected record.
+
+Adding/Removing columns, tables and records can all be done via menu commands.
+Renaming and changing column order are supported as well, moving records is currently not.
 
 [ESC] to close this window.
                 ")

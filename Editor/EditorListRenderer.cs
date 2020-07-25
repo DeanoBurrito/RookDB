@@ -32,7 +32,7 @@ namespace RookDB.Editor
             string dispStr = records[item].identifier.PadRight(ColumnHeaderControl.COLUMN_WIDTH);
             for (int i = hOffset; i < currTable.columns.Count; i++)
             {
-                if (dispStr.Length >= width)
+                if (dispStr.Length + ColumnHeaderControl.COLUMN_WIDTH >= width)
                     break;
                 dispStr += StringHelper.LimitLength(
                     RookDB.PrettyPrintFieldValue(records[item], i), 
