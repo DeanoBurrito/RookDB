@@ -5,14 +5,4 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Reference Include="CliMod">
-      <HintPath>..\CliMod\bin\Debug\netcoreapp3.1\CliMod.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Terminal.Gui" Version="0.81.0" />
-  </ItemGroup>
-
 </Project>
