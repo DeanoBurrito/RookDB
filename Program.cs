@@ -6,6 +6,7 @@ namespace RookDB
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello world, from v2 development branch.");        }
+            Console.WriteLine("Hello world, from v2 development branch.");
+        }
     }
 }
