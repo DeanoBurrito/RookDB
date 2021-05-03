@@ -14,5 +14,7 @@ namespace RookDB
         List = 8,
         Flags = 10,
         Color = 11,
+
+        ErrorValue = byte.MaxValue
     }
 }

@@ -12,12 +12,11 @@ namespace RookDB
 
         internal ImmutableArray<RookField> fields;
 
-        internal RookRecord(RookSheet sheet, string ident, ImmutableArray<RookField> fields)
+        internal RookRecord(RookSheet sheet, string ident)
         {
             identifier = ident;
             this.sheet = sheet;
             this.db = sheet.db;
-            this.fields = fields;
         }
 
         public void FlushWriteCache()

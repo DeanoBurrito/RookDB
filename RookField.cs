@@ -5,7 +5,7 @@ namespace RookDB
     public sealed class RookField : IRookObj
     {
         internal readonly string storedValue;
-        internal readonly object cachedValue;
+        internal object cachedValue;
 
         public readonly RookColumn column;
         public readonly RookRecord record;

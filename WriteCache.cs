@@ -9,7 +9,7 @@ namespace RookDB
     {
         private readonly RookDB parent;
 
-        private readonly Dictionary<string, object> overrides = new Dictionary<string, object>();
+        private readonly Dictionary<RookPath, object> overrides = new Dictionary<RookPath, object>();
 
         public WriteCache(RookDB parent)
         {
@@ -94,14 +94,14 @@ namespace RookDB
             overrides.Clear();
         }
 
-        public object GetOverride(string path)
+        public object GetOverride(RookPath path)
         {
             if (overrides.ContainsKey(path))
                 return overrides[path];
             return null;
         }
 
-        public T GetOverride<T>(string path)
+        public T GetOverride<T>(RookPath path)
         {
             object inside = GetOverride(path);
             if (inside.GetType() != typeof(T))
@@ -109,7 +109,7 @@ namespace RookDB
             return (T)inside;
         }
 
-        public void SetOverride(string path, object value)
+        public void SetOverride(RookPath path, object value)
         {
             if (!overrides.ContainsKey(path))
                 overrides.Add(path, value);
@@ -117,7 +117,7 @@ namespace RookDB
                 overrides[path] = value;
         }
 
-        public void ClearOverride(string path)
+        public void ClearOverride(RookPath path)
         {
             if (overrides.ContainsKey(path))
                 overrides.Remove(path);
