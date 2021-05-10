@@ -5,17 +5,32 @@ namespace RookDB
     public sealed class RookPath
     {
         public readonly string path;
-        internal ulong? readUid;
+        internal readonly string[] segments;
+        internal uint? id = null;
+        internal bool isMeta = false;
 
-        internal RookPath(string path, ulong? readUid = null)
+        public RookPath(string path)
         {
             this.path = path;
-            this.readUid = readUid;
+            segments = path.Split('/');
         }
 
-        public static implicit operator RookPath(string str)
+        internal RookPath(string path, uint id)
         {
-            return new RookPath(str);
+            this.path = path;
+            this.id = id;
+            segments = path.Split('/');
+        }
+
+        public static implicit operator RookPath(string path)
+        {
+            return new RookPath(path);
+        }
+
+        public override string ToString()
+        {
+            string idStr = id.HasValue ? " " + id.Value : "";
+            return "[RookPath] " + path + idStr;
         }
     }
 }
